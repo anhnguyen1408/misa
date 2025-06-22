@@ -1,50 +1,56 @@
 from selenium import webdriver
 from selenium.webdriver.common.by import By
 from selenium.webdriver.chrome.options import Options
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
 import time
 import os
 
-
-ma_hoa_don = "B1HEIRR8N0WP"
-
+with open("ma_hoa_don.txt", "r") as f:
+    danh_sach_ma = [dong.strip() for dong in f if dong.strip()]
 
 thu_muc_tai = os.path.join(os.getcwd(), "hoa_don_tai_ve")
 if not os.path.exists(thu_muc_tai):
     os.makedirs(thu_muc_tai)
 
-
 options = Options()
 options.add_experimental_option("prefs", {
-    "download.default_directory": thu_muc_tai,  
-    "download.prompt_for_download": False,      
+    "download.default_directory": thu_muc_tai,
+    "download.prompt_for_download": False,
     "safebrowsing.enabled": True
 })
-options.add_argument("--start-maximized")  
+options.add_argument("--start-maximized")
 
 trinh_duyet = webdriver.Chrome(options=options)
 
-try:
-    trinh_duyet.get("https://www.meinvoice.vn/tra-cuu")
-    time.sleep(2)  # đợi trang load
-
-    o_nhap_ma = trinh_duyet.find_element(By.CSS_SELECTOR, "input[placeholder='Nhập mã tra cứu hóa đơn']")
-    o_nhap_ma.send_keys(ma_hoa_don)
-    time.sleep(1)
-
-    nut_tim = trinh_duyet.find_element(By.CSS_SELECTOR, "button[type='submit']")
-    nut_tim.click()
-    time.sleep(5)  # chờ kết quả hiện ra
-
+for ma_hoa_don in danh_sach_ma:
     try:
-        nut_tai = trinh_duyet.find_element(By.XPATH, "//button[contains(text(),'Tải hóa đơn')]")
-        nut_tai.click()
-        print("✅ Hóa đơn đã được tải về trong thư mục:", thu_muc_tai)
-    except:
-        print("⚠️ Không tìm thấy hóa đơn với mã:", ma_hoa_don)
+        print(f"Đang tra cứu mã: {ma_hoa_don}")
+        trinh_duyet.get("https://www.meinvoice.vn/tra-cuu")
 
-except Exception as loi:
-    print("❌ Có lỗi xảy ra trong quá trình tra cứu:", loi)
+        o_nhap = WebDriverWait(trinh_duyet, 10).until(
+            EC.presence_of_element_located((By.CSS_SELECTOR, "input[placeholder='Nhập mã tra cứu hóa đơn']"))
+        )
+        o_nhap.clear()
+        o_nhap.send_keys(ma_hoa_don)
 
-finally:
-    time.sleep(5)
-    trinh_duyet.quit()
+        nut_tim = WebDriverWait(trinh_duyet, 10).until(
+            EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Tra cứu')]"))
+        )
+        nut_tim.click()
+
+        time.sleep(5)
+
+        try:
+            nut_tai = WebDriverWait(trinh_duyet, 10).until(
+                EC.element_to_be_clickable((By.XPATH, "//button[contains(text(), 'Tải hóa đơn')]"))
+            )
+            nut_tai.click()
+            print(f"Đã tải hóa đơn cho mã: {ma_hoa_don}")
+        except:
+            print(f"Không tìm thấy hóa đơn cho mã: {ma_hoa_don}")
+
+    except Exception as loi:
+        print(f"Lỗi với mã {ma_hoa_don}: {loi}")
+
+trinh_duyet.quit()
